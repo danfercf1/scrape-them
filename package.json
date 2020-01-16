@@ -4,11 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "start": "node -r esm index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "daniel",
   "license": "ISC",
   "dependencies": {
+    "currencies-exchange-rates": "^1.0.2",
+    "esm": "^3.2.25",
     "puppeteer": "^2.0.0"
   }
 }
