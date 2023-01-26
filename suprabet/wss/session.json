@@ -1,0 +1,9 @@
+{
+    "command": "request_session",
+    "params": {
+        "language": "eng",
+        "site_id": "499",
+        "afec": "uGkXQNVYRnxM2fSqefc25SjN0JTWq5hl0UIJ"
+    },
+    "rid": "request_session700683904996858"
+}

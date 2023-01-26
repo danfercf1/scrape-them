@@ -1,5 +1,5 @@
-import {moneyExchange, extractDate} from "../utils";
-import {BOOKIES} from "../lib/constants";
+import {extractDate} from "../utils/index.js";
+import {BOOKIES} from "../lib/constants.js";
 
 // BOOKIE GENIOBET
 export const genioBet = async (search = {}, instanceNavigator) => {
