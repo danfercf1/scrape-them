@@ -96,11 +96,20 @@ async function getData(leagues, browser) {
 
 init().then(async (instanceBrowser) => {
   const browser = instanceBrowser;
-  
-  const result = await Promise.all(await getData(leagues, browser));
-  
-  console.log(JSON.stringify(result, null, 4));
+  let arbitrageResult;
+  const results = await Promise.all([
+    suprabetOthers(search, browser),
+    // tenbet(search, browser),
+    // marathonbet(search, browser),
+    // matchbook(search, browser)
+  ]);
+  if (search.sport === 'soccer')
+    arbitrageResult = await arbitrage3Way(...results);
+  if (search.sport === 'basketball')
+    arbitrageResult = await arbitrage2Way(...results);
 
+  console.log(JSON.stringify(arbitrageResult, null, 4));
+  // const bookmakerTest = await tenbet(search, browser);
+  // console.log(JSON.stringify(bookmakerTest, null, 4));
   await browser.close();
-
 });
