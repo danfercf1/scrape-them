@@ -1,14 +1,18 @@
-import {convertCurrency} from "currencies-exchange-rates";
+import date from "date-and-time";
 
-import {BOOKIES} from "../lib/constants";;
-
-const currencies = /(\d+([\.,]\d{2}?))|(\d+(|[\.,]\d{1,2}?))/;
+import {BOOKIES} from "../lib/constants.js";
 
 export const moneyExchange = async (amount, from = 'GBP', to = 'USD') => {
+  const GBP = 1;
+  const USD = 1.22;
+  const now  =  new Date();
+  const currencies = /(\d+([\.,]\d{2}?))|(\d+(|[\.,]\d{1,2}?))/;
   const re = new RegExp(currencies);
+  if (amount === 0) return amount;
   const match = amount.match(re);
   const parsedAmount = parseFloat(match[0] || 0);
-  return parseFloat(await convertCurrency(from, to, parsedAmount)).toFixed(2);
+  // const currentDate = date.format(now,'YYYY-MM-DD');
+  return parseFloat(parsedAmount * USD).toFixed(2);
 };
 
 export const extractDate = (bookie = BOOKIES.MATCHBOOK, date = new Date()) => {
@@ -32,3 +36,15 @@ export const extractDate = (bookie = BOOKIES.MATCHBOOK, date = new Date()) => {
   }
   return newDate;
 };
+
+export const nameFormatter = (name) => {
+  return name.normalize("NFD").replace(/\p{Diacritic}/gu, "").replaceAll(' ', '-').toLowerCase();
+};
+
+export const debugElementHandler = async (elementHandler) => {
+  const jsHandle = await elementHandler.getProperty('innerHTML');
+
+  const plainValue = await jsHandle.jsonValue();
+
+  console.log(plainValue);
+}

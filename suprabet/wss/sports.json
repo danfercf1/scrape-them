@@ -1,0 +1,34 @@
+{
+    "command": "get",
+    "params": {
+        "source": "betting",
+        "what": {
+            "sport": [
+                "id",
+                "name",
+                "alias",
+                "order"
+            ]
+        },
+        "where": {
+            "game": {
+                "@or": [
+                    {
+                        "type": {
+                            "@in": [
+                                0,
+                                2
+                            ]
+                        }
+                    },
+                    {
+                        "visible_in_prematch": 1,
+                        "type": 1
+                    }
+                ]
+            }
+        },
+        "subscribe": true
+    },
+    "rid": "subscribeCmd957472338888596"
+}

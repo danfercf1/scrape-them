@@ -7,11 +7,18 @@
     "start": "node -r esm index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "type": "module",
   "author": "daniel",
   "license": "ISC",
   "dependencies": {
-    "currencies-exchange-rates": "^1.0.2",
+    "date-and-time": "^2.4.2",
     "esm": "^3.2.25",
-    "puppeteer": "^2.0.0"
+    "exchange-rates-api": "^1.1.0",
+    "lodash": "^4.17.21",
+    "puppeteer": "^19.4.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.31.0",
+    "prettier": "^2.8.2"
   }
 }

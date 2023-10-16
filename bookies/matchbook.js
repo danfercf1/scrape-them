@@ -1,118 +1,590 @@
-import {moneyExchange, extractDate} from "../utils";
+import {
+  extractDate,
+  nameFormatter,
+  moneyExchange,
+  debugElementHandler,
+} from "../utils/index.js";
+import { CONFIG, BOOKIES } from "../lib/constants.js";
+import {
+  unifiedNameFinder,
+  unifiedLeaguesFinder,
+  unifiedSportsFinder,
+} from "../lib/unified/index.js";
+
+const exchange = true;
+const comission = 4;
 
 // MATCHBOOK
 export const matchbook = async (search = {}, instanceNavigator) => {
   const browser = await instanceNavigator;
-  const sport = search.sport || 'soccer';
-  const country = search.country || 'england';
-  const league = search.league || 'premier-league';
+  const bookieSearch = Object.assign({}, search);
+  const country = bookieSearch.country;
+  const bookmaker = BOOKIES.MATCHBOOK;
+  const sport = unifiedSportsFinder(bookmaker, bookieSearch.sport);
+  let league = "";
+  if (bookieSearch.type !== "live") {
+    league = unifiedLeaguesFinder(bookmaker, country, bookieSearch.league);
+  }
+  bookieSearch.bookmaker = bookmaker;
   let searchList;
+  const page = await browser.newPage();
+  page.setDefaultNavigationTimeout(CONFIG.pageTimeout);
+  let url = "";
 
   try {
-    const page = await browser.newPage();
+    if (!league) return [];
+    if (bookieSearch.type === "live") {
+      url = `http://51.89.232.96/events/${sport}#in-play`;
+    } else if (bookieSearch.sport === "basketball") {
+      url = `http://51.89.232.96/events/${sport}/${league}`;
+    } else url = `http://51.89.232.96/events/${sport}/${country}/${league}`;
 
-    await page.goto(`https://www.matchbook.com/events/${sport}/${country}/${league}`);
+    await page.goto(url);
 
-    // Check if the data was loaded
-    await page.waitForSelector("#app-next > div > div.mb-app__containerChildren > div > div > div.mb-events > div:nth-child(2) > div.mb-events__list > div:nth-child(1) > div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(1) > a.Price__price___3UAJu.Price__lay___vOMZN.Price__level-0___2pByH > span.Price__odds___1dmQG");
+    // Check if the data was loaded, check the banner
+    await page.waitForSelector(
+      "#root > div > div.RightSidebar__main___LaFmQ > div:nth-child(3) > div"
+    );
 
-    const matchesList = await page.$$("#app-next > div > div.mb-app__containerChildren > div:nth-child(1) > div > div.mb-events > div:nth-child(2) > div.mb-events__list .mb-event-slide-animation-enter-done");
+    // Waiting time in order to load all the data
+    await page.waitForTimeout(CONFIG.timeout);
 
-    searchList = await Promise.all(matchesList.map(async match => {
-        // DATE AND LEAGUE
-        const headerTag = await match.$eval("div:nth-child(1) > div > span.EventHeader__start___2Xn2h", element => element.textContent);
-        const headerSplit = headerTag.split('|');
+    const matchesList = await page.$$("div.Event-module__main___ubU9Q");
 
-        let date = headerSplit[0].trim() || '';
-        date = extractDate(date);
-        const league = headerSplit[1].trim() || '';
+    // debugElementHandler(matchesList);
 
-        // GAME
-        const gameName = await match.$eval("div:nth-child(1) > div > a > h1", element => element.textContent);
-        const gameLink = await match.$eval("div:nth-child(1) > div > a", element => element.href);
-
-        // VS
-        // TEAM1
-        const team1Name = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(1) > div > div.Runner__info___21Pwe > span > h4.ClippableString__variable___38RDR", element => element.textContent);
-
-        // BACK
-        const team1Back = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(1) > a.Price__price___3UAJu.Price__back___3Gwg5.Price__level-0___2pByH > span.Price__odds___1dmQG", element => element.textContent);
-        const team1BackLiquidity = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(1) > a.Price__price___3UAJu.Price__back___3Gwg5.Price__level-0___2pByH > span.Price__amount___32k6W", element => element.textContent);
-
-        // LAY
-        const team1Lay = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(1) > a.Price__price___3UAJu.Price__lay___vOMZN.Price__level-0___2pByH > span.Price__odds___1dmQG", element => element.textContent);
-        const team1LayLiquidity = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(1) > a.Price__price___3UAJu.Price__lay___vOMZN.Price__level-0___2pByH > span.Price__amount___32k6W", element => element.textContent);
-
-
-        // TEAM2
-        const team2Name = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(2) > div > div.Runner__info___21Pwe > span > h4.ClippableString__variable___38RDR", element => element.textContent);
-
-        // BACK
-        const team2Back = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(2) > a.Price__price___3UAJu.Price__back___3Gwg5.Price__level-0___2pByH > span.Price__odds___1dmQG", element => element.textContent);
-        const team2BackLiquidity = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(2) > a.Price__price___3UAJu.Price__back___3Gwg5.Price__level-0___2pByH > span.Price__amount___32k6W", element => element.textContent);
-
-        // LAY
-        const team2Lay = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(2) > a.Price__price___3UAJu.Price__lay___vOMZN.Price__level-0___2pByH > span.Price__odds___1dmQG", element => element.textContent);
-        const team2LayLiquidity = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(2) > a.Price__price___3UAJu.Price__lay___vOMZN.Price__level-0___2pByH > span.Price__amount___32k6W", element => element.textContent);
-
-
-        // BACK
-        const drawBack = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(3) > a.Price__price___3UAJu.Price__back___3Gwg5.Price__level-0___2pByH > span.Price__odds___1dmQG", element => element.textContent);
-        const drawBackLiquidity = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(3) > a.Price__price___3UAJu.Price__back___3Gwg5.Price__level-0___2pByH > span.Price__amount___32k6W", element => element.textContent);
-
-        // LAY
-        const drawLay = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(3) > a.Price__price___3UAJu.Price__lay___vOMZN.Price__level-0___2pByH > span.Price__odds___1dmQG", element => element.textContent);
-        const drawLayLiquidity = await match.$eval("div.Event__markets___BASQj > div:nth-child(1) > div.Market__runners___2iLqk > div:nth-child(3) > a.Price__price___3UAJu.Price__lay___vOMZN.Price__level-0___2pByH > span.Price__amount___32k6W", element => element.textContent);
-
-        return {
-          league,
-          game: gameName,
-          link: gameLink,
-          date,
-          vs: {
-            team1: {
-              name: team1Name,
-              back: {
-                odd: parseFloat(team1Back),
-                liquidity: parseFloat(await moneyExchange(team1BackLiquidity))
-              },
-              lay: {
-                odd: parseFloat(team1Lay),
-                liquidity: parseFloat(await moneyExchange(team1LayLiquidity))
-              }
-            },
-            team2: {
-              name: team2Name,
-              back: {
-                odd: parseFloat(team2Back),
-                liquidity: parseFloat(await moneyExchange(team2BackLiquidity))
-              },
-              lay: {
-                odd: parseFloat(team2Lay),
-                liquidity: parseFloat(await moneyExchange(team2LayLiquidity))
-              }
-            },
-            draw: {
-              name: 'draw',
-              back: {
-                odd: parseFloat(drawBack),
-                liquidity: parseFloat(await moneyExchange(drawBackLiquidity))
-              },
-              lay: {
-                odd: parseFloat(drawLay),
-                liquidity: parseFloat(await moneyExchange(drawLayLiquidity))
-              }
-            }
-          }
-        };
+    searchList = await Promise.all(
+      matchesList.map(async (match) => {
+        if (
+          bookieSearch.sport.toLowerCase() === "soccer" &&
+          bookieSearch.type === "live"
+        )
+          return soccerScrapingLive(match, bookieSearch);
+        if (bookieSearch.sport.toLowerCase() === "soccer")
+          return soccerScraping(match, bookieSearch);
+        if (bookieSearch.sport.toLowerCase() === "basketball")
+          return basketballScraping(match, bookieSearch);
       })
     );
 
-    await page.screenshot({path: 'match.png'});
+    await page.screenshot({ path: `${bookieSearch.bookmaker}.png` });
     return searchList;
   } catch (e) {
     console.log(e);
   } finally {
-    if (browser) await browser.disconnect();
+    await page.close();
   }
+};
+
+const soccerScraping = async (match, search) => {
+  // DATE AND LEAGUE
+
+  const matchDate = await match.$eval(
+    "h2 > div > span:nth-child(1)",
+    (element) => element.textContent
+  );
+
+  const matchTime = await match.$eval(
+    "h2 > div > span:nth-child(2)",
+    (element) => element.textContent
+  );
+
+  // let date = headerSplit[0].trim() || '';
+  // date = extractDate(date);
+
+  // GAME
+
+  const gameLink = await match.$eval("h2 > a", (element) => element.href);
+
+  const isLiveBetting = await match
+    .$eval("h2 > div > span:nth-child(2) > svg", () => true)
+    .catch(() => false);
+
+  // VS
+  // TEAM1
+  const team1Name = await match.$eval(
+    "h2 > a > span > div:nth-child(1)",
+    (element) => element.textContent
+  );
+
+  // BACK
+  let team1Back = await match
+    .$eval(
+      "div > div:nth-child(1) > div > div > div:nth-child(1) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  const team1BackLiquidity = await match
+    .$eval(
+      "div > div:nth-child(1) > div:nth-child(1) > div > div:nth-child(1) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // LAY
+
+  const team1Lay = await match
+    .$eval(
+      "div > div:nth-child(1) > div > div > div:nth-child(2) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+  const team1LayLiquidity = await match
+    .$eval(
+      "div > div:nth-child(1) > div > div > div:nth-child(2) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // TEAM2
+  let team2Name = await match.$eval(
+    "h2 > a > span > div:nth-child(2)",
+    (element) => element.textContent
+  );
+
+  team2Name = team2Name.replace("  vs  ", "");
+
+  // // BACK
+  let team2Back = await match
+    .$eval(
+      "div > div:nth-child(3) > div > div > div:nth-child(1) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+  const team2BackLiquidity = await match
+    .$eval(
+      "div > div:nth-child(3) > div > div > div:nth-child(1) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // // LAY
+  const team2Lay = await match
+    .$eval(
+      "div > div:nth-child(3) > div > div > div:nth-child(2) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+  const team2LayLiquidity = await match
+    .$eval(
+      "div > div:nth-child(3) > div > div > div:nth-child(2) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // // DRAW
+
+  // // BACK
+  let drawBack = await match
+    .$eval(
+      "div > div:nth-child(2) > div > div > div:nth-child(1) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  const drawBackLiquidity = await match.$eval(
+    "div > div:nth-child(2) > div > div > div:nth-child(1) > div > span:nth-child(2)",
+    (element) => element.textContent
+  );
+
+  // // LAY
+  const drawLay = await match
+    .$eval(
+      "div > div:nth-child(2) > div > div > div:nth-child(2) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+  const drawLayLiquidity = await match
+    .$eval(
+      "div > div:nth-child(2) > div > div > div:nth-child(2) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  const team1NameFormatted = nameFormatter(team1Name);
+  const team2NameFormatted = nameFormatter(team2Name);
+
+  const gameName = `${team1NameFormatted}-vs-${team2NameFormatted}`;
+
+  const unifiedNameTeam1 = unifiedNameFinder(
+    search.sport.toLowerCase(),
+    search.country.toLowerCase(),
+    team1NameFormatted
+  );
+  const unifiedNameTeam2 = unifiedNameFinder(
+    search.sport.toLowerCase(),
+    search.country.toLowerCase(),
+    team2NameFormatted
+  );
+
+  const unifiedGameName = `${unifiedNameTeam1}-vs-${unifiedNameTeam2}`;
+  
+  if (exchange) {
+    team1Back = parseFloat(team1Back) - (comission / 100);
+    team2Back = parseFloat(team2Back) - (comission / 100);
+    drawBack = parseFloat(drawBack) - (comission / 100);
+  } else {
+    team1Back = parseFloat(team1Back);
+    team2Back = parseFloat(team2Back);
+    drawBack = parseFloat(drawBack);
+  }
+
+  return {
+    league: search.league,
+    game: gameName,
+    unifiedGameName,
+    link: gameLink,
+    date: "",
+    bookmaker: search.bookmaker,
+    isLiveBetting,
+    match: {
+      team1: {
+        name: team1Name,
+        back: {
+          odd: team1Back.toFixed(2),
+          liquidity: parseFloat(await moneyExchange(team1BackLiquidity)),
+        },
+        lay: {
+          odd: parseFloat(team1Lay),
+          liquidity: parseFloat(await moneyExchange(team1LayLiquidity)),
+        },
+      },
+      team2: {
+        name: team2Name,
+        back: {
+          odd: team2Back.toFixed(2),
+          liquidity: parseFloat(await moneyExchange(team2BackLiquidity)),
+        },
+        lay: {
+          odd: parseFloat(team2Lay),
+          liquidity: parseFloat(await moneyExchange(team2LayLiquidity)),
+        },
+      },
+      draw: {
+        name: "X",
+        back: {
+          odd: drawBack.toFixed(2),
+          liquidity: parseFloat(await moneyExchange(drawBackLiquidity)),
+        },
+        lay: {
+          odd: parseFloat(drawLay),
+          liquidity: parseFloat(await moneyExchange(drawLayLiquidity)),
+        },
+      },
+    },
+  };
+};
+
+const soccerScrapingLive = async (match, search) => {
+  // DATE AND LEAGUE
+
+  const matchDate = await match.$eval(
+    "h2 > div > span:nth-child(1)",
+    (element) => element.textContent
+  );
+
+  const matchTime = await match.$eval(
+    "h2 > div > span:nth-child(2)",
+    (element) => element.textContent
+  );
+
+  // let date = headerSplit[0].trim() || '';
+  // date = extractDate(date);
+
+  // GAME
+
+  const gameLink = await match.$eval("h2 > a", (element) => element.href);
+
+  const isLiveBetting = await match
+    .$eval("h2 > div > span:nth-child(2) > svg", () => true)
+    .catch(() => false);
+
+  // VS
+  // TEAM1
+  const team1Name = await match.$eval(
+    "h2 > a > span > div:nth-child(1)",
+    (element) => element.textContent
+  );
+
+  // BACK
+  const team1Back = await match
+    .$eval(
+      "div > div:nth-child(1) > div > div > div:nth-child(1) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  const team1BackLiquidity = await match
+    .$eval(
+      "div > div:nth-child(1) > div:nth-child(1) > div > div:nth-child(1) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // LAY
+
+  const team1Lay = await match
+    .$eval(
+      "div > div:nth-child(1) > div > div > div:nth-child(2) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+  const team1LayLiquidity = await match
+    .$eval(
+      "div > div:nth-child(1) > div > div > div:nth-child(2) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // TEAM2
+  let team2Name = await match.$eval(
+    "h2 > a > span > div:nth-child(2)",
+    (element) => element.textContent
+  );
+
+  team2Name = team2Name.replace("  vs  ", "");
+
+  // // BACK
+  const team2Back = await match
+    .$eval(
+      "div > div:nth-child(3) > div > div > div:nth-child(1) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+  const team2BackLiquidity = await match
+    .$eval(
+      "div > div:nth-child(3) > div > div > div:nth-child(1) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // // LAY
+  const team2Lay = await match
+    .$eval(
+      "div > div:nth-child(3) > div > div > div:nth-child(2) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+  const team2LayLiquidity = await match
+    .$eval(
+      "div > div:nth-child(3) > div > div > div:nth-child(2) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // // DRAW
+
+  // // BACK
+  const drawBack = await match
+    .$eval(
+      "div > div:nth-child(2) > div > div > div:nth-child(1) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  const drawBackLiquidity = await match.$eval(
+    "div > div:nth-child(2) > div > div > div:nth-child(1) > div > span:nth-child(2)",
+    (element) => element.textContent
+  );
+
+  // // LAY
+  const drawLay = await match
+    .$eval(
+      "div > div:nth-child(2) > div > div > div:nth-child(2) > div > span:nth-child(1)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+  const drawLayLiquidity = await match
+    .$eval(
+      "div > div:nth-child(2) > div > div > div:nth-child(2) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  const team1NameFormatted = nameFormatter(team1Name);
+  const team2NameFormatted = nameFormatter(team2Name);
+
+  const gameName = `${team1NameFormatted}-vs-${team2NameFormatted}`;
+
+  const unifiedGameName = `${team1NameFormatted}-vs-${team2NameFormatted}`;
+
+  return {
+    league: search.league,
+    game: gameName,
+    unifiedGameName,
+    link: gameLink,
+    date: "",
+    bookmaker: search.bookmaker,
+    isLiveBetting,
+    match: {
+      team1: {
+        name: team1Name,
+        back: {
+          odd: parseFloat(team1Back),
+          liquidity: parseFloat(await moneyExchange(team1BackLiquidity)),
+        },
+        lay: {
+          odd: parseFloat(team1Lay),
+          liquidity: parseFloat(await moneyExchange(team1LayLiquidity)),
+        },
+      },
+      team2: {
+        name: team2Name,
+        back: {
+          odd: parseFloat(team2Back),
+          liquidity: parseFloat(await moneyExchange(team2BackLiquidity)),
+        },
+        lay: {
+          odd: parseFloat(team2Lay),
+          liquidity: parseFloat(await moneyExchange(team2LayLiquidity)),
+        },
+      },
+      draw: {
+        name: "X",
+        back: {
+          odd: parseFloat(drawBack),
+          liquidity: parseFloat(await moneyExchange(drawBackLiquidity)),
+        },
+        lay: {
+          odd: parseFloat(drawLay),
+          liquidity: parseFloat(await moneyExchange(drawLayLiquidity)),
+        },
+      },
+    },
+  };
+};
+const basketballScraping = async (match, search) => {
+  // DATE AND LEAGUE
+  const matchDate = await match.$eval(
+    "h2 > div > span:nth-child(1)",
+    (element) => element.textContent
+  );
+
+  const matchTime = await match.$eval(
+    "h2 > div > span:nth-child(2)",
+    (element) => element.textContent
+  );
+
+  // let date = headerSplit[0].trim() || '';
+  // date = extractDate(date);
+
+  // GAME
+
+  const gameLink = await match.$eval("h2 > a", (element) => element.href);
+
+  // VS
+  // TEAM1
+  const team1Name = await match.$eval(
+    "h2 > a > span > div:nth-child(1)",
+    (element) => element.textContent
+  );
+
+  // BACK
+  const team1Back = await match.$eval(
+    "div > div:nth-child(1) > div > div > div:nth-child(1) > div > span:nth-child(1)",
+    (element) => element.textContent
+  );
+  const team1BackLiquidity = await match
+    .$eval(
+      "div > div:nth-child(1) > div:nth-child(1) > div > div:nth-child(1) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // LAY
+
+  const team1Lay = await match.$eval(
+    "div > div:nth-child(1) > div > div > div:nth-child(2) > div > span:nth-child(1)",
+    (element) => element.textContent
+  );
+  const team1LayLiquidity = await match
+    .$eval(
+      "div > div:nth-child(1) > div > div > div:nth-child(2) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // TEAM2
+  let team2Name = await match.$eval(
+    "h2 > a > span > div:nth-child(2)",
+    (element) => element.textContent
+  );
+
+  team2Name = team2Name.replace("  at  ", "");
+
+  // // BACK
+  const team2Back = await match.$eval(
+    "div > div:nth-child(2) > div > div > div:nth-child(1) > div > span:nth-child(1)",
+    (element) => element.textContent
+  );
+  const team2BackLiquidity = await match
+    .$eval(
+      "div > div:nth-child(2) > div > div > div:nth-child(1) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  // // LAY
+  const team2Lay = await match.$eval(
+    "div > div:nth-child(2) > div > div > div:nth-child(2) > div > span:nth-child(1)",
+    (element) => element.textContent
+  );
+  const team2LayLiquidity = await match
+    .$eval(
+      "div > div:nth-child(2) > div > div > div:nth-child(2) > div > span:nth-child(2)",
+      (element) => element.textContent
+    )
+    .catch(() => 0);
+
+  const team1NameFormatted = nameFormatter(team1Name);
+  const team2NameFormatted = nameFormatter(team2Name);
+
+  const gameName = `${team1NameFormatted}-vs-${team2NameFormatted}`;
+
+  const unifiedNameTeam1 = unifiedNameFinder(
+    search.sport.toLowerCase(),
+    search.country.toLowerCase(),
+    team1NameFormatted
+  );
+  const unifiedNameTeam2 = unifiedNameFinder(
+    search.sport.toLowerCase(),
+    search.country.toLowerCase(),
+    team2NameFormatted
+  );
+
+  const unifiedGameName = `${unifiedNameTeam1}-vs-${unifiedNameTeam2}`;
+
+  return {
+    league: search.league,
+    game: gameName,
+    unifiedGameName,
+    link: gameLink,
+    date: "",
+    bookmaker: search.bookmaker,
+    match: {
+      team1: {
+        name: team1Name,
+        back: {
+          odd: parseFloat(team1Back),
+          liquidity: parseFloat(await moneyExchange(team1BackLiquidity)),
+        },
+        lay: {
+          odd: parseFloat(team1Lay),
+          liquidity: parseFloat(await moneyExchange(team1LayLiquidity)),
+        },
+      },
+      team2: {
+        name: team2Name,
+        back: {
+          odd: parseFloat(team2Back),
+          liquidity: parseFloat(await moneyExchange(team2BackLiquidity)),
+        },
+        lay: {
+          odd: parseFloat(team2Lay),
+          liquidity: parseFloat(await moneyExchange(team2LayLiquidity)),
+        },
+      },
+    },
+  };
 };
